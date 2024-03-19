@@ -3,6 +3,7 @@ package Cliente;
 import Servidor.CarpetaObjeto;
 import java.net.Socket;
 import java.io.*;
+import java.util.Enumeration;
 import java.util.Scanner;
 import java.util.zip.*;
 import javax.swing.JFileChooser;
@@ -27,8 +28,8 @@ public class Cliente {
             oos = new ObjectOutputStream(cl.getOutputStream());
             ois = new ObjectInputStream(cl.getInputStream());
 
-            rutaCarpetaLocal = "C:\\Users\\garci\\OneDrive\\Documentos\\NetBeansProjects\\Almacenamiento-Remoto-Achivos\\CarpetaLocal";
-            rutaCarpetaRemota = "C:\\Users\\garci\\OneDrive\\Documentos\\NetBeansProjects\\Almacenamiento-Remoto-Achivos\\CarpetaRemota";
+            rutaCarpetaLocal = "./CarpetaLocal";
+            rutaCarpetaRemota = "./CarpetaRemota";
 
             
         } catch (IOException e) {
@@ -249,47 +250,97 @@ public class Cliente {
         }
     }
 
-        public void descargarArchivoRemoto(String nombreArchivo) {
+    public void descargarArchivoRemoto(int posicionArchivo) {
         try {
             dos.writeInt(7);
             dos.flush();
 
-            dos.writeUTF(nombreArchivo);
+            dos.writeInt(posicionArchivo);
             dos.flush();
 
-            String mensajeDescarga = dis.readUTF();
-            if (mensajeDescarga.equals("EXISTE")) {
-                String rutaDescarga = rutaCarpetaLocal + File.separator + nombreArchivo;
-                long tamDescarga = dis.readLong();
+            String nombre = dis.readUTF();
+            long tam = dis.readLong();
+            System.out.println("Comienza descarga del archivo " + nombre + " de " + tam + " bytes\n\n");
 
-                try (FileOutputStream fos = new FileOutputStream(rutaDescarga);
-                     BufferedOutputStream bos = new BufferedOutputStream(fos)) {
-                    byte[] buffer = new byte[1500];
-                    int leidos;
-                    long recibidos = 0;
-                    int porcentaje = 0;
-                    while (recibidos < tamDescarga) {
-                        leidos = dis.read(buffer);
-                        bos.write(buffer, 0, leidos);
-                        bos.flush();
-                        recibidos += leidos;
-                        porcentaje = (int) ((recibidos * 100) / tamDescarga);
-                        System.out.print("\rRecibido el " + porcentaje + " % del archivo");
-                    }
-                    System.out.println("\n\n Descarga completada.");
-                } catch (IOException e) {
-                    System.err.println("Error al recibir el archivo: " + e.getMessage());
+            File archivoDestino = new File(rutaCarpetaLocal + File.separator + nombre);
+
+            try (FileOutputStream fos = new FileOutputStream(archivoDestino); BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+                byte[] buffer = new byte[1500];
+                int leidos, totalLeidos = 0;
+
+                while (totalLeidos < tam && (leidos = dis.read(buffer, 0, (int) Math.min(buffer.length, tam - totalLeidos))) != -1) {
+                    bos.write(buffer, 0, leidos);
+                    totalLeidos += leidos;
                 }
-            } else {
-                System.out.println("El archivo no existe en el servidor.");
+                bos.flush();
+                System.out.println("Archivo recibido correctamente: " + nombre);
+            } catch (IOException e) {
+                System.err.println("Error al recibir el archivo " + nombre + ": " + e.getMessage());
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
-    public void descargarCarpetaLocal(String rutaDescarga) {
 
+    public void descargarCarpetaRemoto(int indiceArchivo, String rutaDescarga) {
+        try {
+            dos.writeInt(8); // Envía el código de operación al servidor
+            dos.flush();
+
+            dos.writeInt(indiceArchivo); // Envía el índice del archivo/carpeta a descargar
+            dos.flush();
+
+            String nombreArchivoZip = dis.readUTF(); // Lee el nombre del archivo ZIP a recibir
+            long tam = dis.readLong(); // Lee el tamaño del archivo ZIP
+
+            if (tam > 0) {
+                System.out.println("Preparándose para recibir la carpeta de " + tam + " bytes\n\n");
+                File carpetaRecibida = new File(rutaDescarga + "/" + nombreArchivoZip);
+                try (FileOutputStream fos = new FileOutputStream(carpetaRecibida);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+                    byte[] buffer = new byte[3500];
+                    int leidos;
+                    while (tam > 0 && (leidos = dis.read(buffer, 0, (int) Math.min(buffer.length, tam))) != -1) {
+                        bos.write(buffer, 0, leidos);
+                        tam -= leidos;
+                    }
+                    System.out.println("\nCarpeta recibida.");
+                } catch (IOException e) {
+                    System.err.println("Error al recibir la carpeta: " + e.getMessage());
+                }
+
+                // Descomprimir el archivo ZIP
+                try (ZipFile zipFile = new ZipFile(carpetaRecibida)) {
+                    Enumeration<? extends ZipEntry> entries = zipFile.entries();
+                    while (entries.hasMoreElements()) {
+                        ZipEntry entry = entries.nextElement();
+                        File entryDestination = new File(rutaDescarga, entry.getName());
+                        if (entry.isDirectory()) {
+                            entryDestination.mkdirs();
+                        } else {
+                            try (InputStream is = zipFile.getInputStream(entry);
+                                 OutputStream os = new FileOutputStream(entryDestination)) {
+                                byte[] buffer = new byte[4096];
+                                int bytesRead;
+                                while ((bytesRead = is.read(buffer)) != -1) {
+                                    os.write(buffer, 0, bytesRead);
+                                }
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error al descomprimir la carpeta: " + e.getMessage());
+                }
+
+                // Eliminar el archivo ZIP
+                carpetaRecibida.delete();
+                System.out.println("Archivo ZIP eliminado después de la extracción.");
+            } else {
+                System.out.println("La carpeta no existe.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
     
     public void cerrarConexion() {

@@ -1,0 +1,19 @@
+Arquitectura de computadoras -- 22/02/2024
+
+La unidad básica de almacenamiento es el FlipFlop, almacena un bit de información.
+
+Es secuencial, es decir, cuenta con puertas logicas, una señal de reloj y un lazo de retroalimentación.
+
+Unidades de información:
+1. Bit (1 bit)
+2. Nibble (16 bit)
+3. Byte (32 bit)
+4. Halfword (64 bit)
+5. Word
+6. Double Word
+7. Quad Word (128 bit)
+
+(Identificar el tipo de direccionamiento que se utiliza)
+
+
+Programa: Conjunto de instrucciones que resuelven una tarea especificada por el programador. Si no resuelve la tarea, no es un programa.
