@@ -210,44 +210,89 @@ public class Cliente {
 
     public void enviarCarpetaRemota(String rutaCarpetaEnviar) {
         try {
-            dos.writeInt(11);
+            dos.writeInt(11); // Envía el código de operación al servidor
             dos.flush();
 
             File carpetaEnviar = new File(rutaCarpetaEnviar);
             if (carpetaEnviar.exists() && carpetaEnviar.isDirectory()) {
+                String nombreCarpeta = carpetaEnviar.getName();
+                File carpetaComprimida = new File(carpetaEnviar.getParent(), nombreCarpeta + ".zip");
+
                 try {
-                    String nombreCarpeta = carpetaEnviar.getName();
-                    File carpetaComprimida = new File(nombreCarpeta + ".zip");
-                    ZipUtil.comprimirCarpeta(carpetaEnviar, carpetaComprimida);
+                    // Comprimir la carpeta en un archivo ZIP
+                    FileOutputStream fos = new FileOutputStream(carpetaComprimida);
+                    ZipOutputStream zipOut = new ZipOutputStream(fos);
+                    zipFile(carpetaEnviar, carpetaEnviar.getName(), zipOut);
+                    zipOut.close();
+                    fos.close();
+
+                    // Obtener el tamaño del archivo ZIP
                     long tam = carpetaComprimida.length();
-                    System.out.println("Preparándose para enviar carpeta " + nombreCarpeta + " de " + tam + " bytes\n\n");
-                    dos.writeUTF(nombreCarpeta);
+
+                    // Enviar nombre de carpeta y tamaño al servidor
+                    dos.writeUTF(nombreCarpeta + ".zip");
                     dos.flush();
                     dos.writeLong(tam);
                     dos.flush();
-                    try (FileInputStream fis = new FileInputStream(carpetaComprimida);
-                            ZipInputStream zis = new ZipInputStream(fis)) {
-                        ZipEntry entry;
-                        while ((entry = zis.getNextEntry()) != null) {
-                            byte[] buffer = new byte[3500];
-                            int leidos;
-                            while ((leidos = zis.read(buffer)) != -1) {
-                                dos.write(buffer, 0, leidos);
-                                dos.flush();
-                            }
-                        }
-                    }
-                    System.out.println("\nCarpeta enviada.");
-                } catch (IOException e) {
-                    System.err.println("Error al enviar la carpeta: " + e.getMessage());
-                }
 
+                    // Enviar el contenido del archivo ZIP al servidor
+                    try (DataInputStream disFile = new DataInputStream(new FileInputStream(carpetaComprimida))) {
+                        byte[] buffer = new byte[1500];
+                        int leidos;
+                        long enviados = 0;
+                        int porcentaje;
+                        while ((leidos = disFile.read(buffer)) != -1) {
+                            dos.write(buffer, 0, leidos);
+                            dos.flush();
+                            enviados += leidos;
+                            porcentaje = (int) ((enviados * 100) / tam);
+                            System.out.print("\rEnviado el " + porcentaje + "% del archivo");
+                        }
+                        System.out.println("\nCarpeta enviada.");
+                    } catch (IOException e) {
+                        System.err.println("Error al enviar la carpeta: " + e.getMessage());
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error al comprimir la carpeta: " + e.getMessage());
+                } finally {
+                    // Eliminar el archivo ZIP después de enviar la carpeta
+                    carpetaComprimida.delete();
+                }
             } else {
                 System.out.println("La carpeta no existe o no es válida.");
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+    
+        public static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
+        if (fileToZip.isHidden()) {
+            return;
+        }
+        if (fileToZip.isDirectory()) {
+            if (fileName.endsWith("/")) {
+                zipOut.putNextEntry(new ZipEntry(fileName));
+                zipOut.closeEntry();
+            } else {
+                zipOut.putNextEntry(new ZipEntry(fileName + "/"));
+                zipOut.closeEntry();
+            }
+            File[] children = fileToZip.listFiles();
+            for (File childFile : children) {
+                zipFile(childFile, fileName + "/" + childFile.getName(), zipOut);
+            }
+            return;
+        }
+        FileInputStream fis = new FileInputStream(fileToZip);
+        ZipEntry zipEntry = new ZipEntry(fileName);
+        zipOut.putNextEntry(zipEntry);
+        byte[] bytes = new byte[1024];
+        int length;
+        while ((length = fis.read(bytes)) >= 0) {
+            zipOut.write(bytes, 0, length);
+        }
+        fis.close();
     }
 
     public void descargarArchivoRemoto(int posicionArchivo) {
@@ -284,14 +329,14 @@ public class Cliente {
 
     public void descargarCarpetaRemoto(int indiceArchivo, String rutaDescarga) {
         try {
-            dos.writeInt(8); // Envía el código de operación al servidor
+            dos.writeInt(8);
             dos.flush();
 
-            dos.writeInt(indiceArchivo); // Envía el índice del archivo/carpeta a descargar
+            dos.writeInt(indiceArchivo);
             dos.flush();
 
-            String nombreArchivoZip = dis.readUTF(); // Lee el nombre del archivo ZIP a recibir
-            long tam = dis.readLong(); // Lee el tamaño del archivo ZIP
+            String nombreArchivoZip = dis.readUTF();
+            long tam = dis.readLong();
 
             if (tam > 0) {
                 System.out.println("Preparándose para recibir la carpeta de " + tam + " bytes\n\n");
