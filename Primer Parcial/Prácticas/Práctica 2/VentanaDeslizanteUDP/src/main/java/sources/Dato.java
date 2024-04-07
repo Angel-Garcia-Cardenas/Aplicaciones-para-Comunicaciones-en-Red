@@ -2,10 +2,9 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package Servidor;
+package sources;
 
 import java.io.*;
-import java.net.*;
 
 /**
  *
@@ -16,11 +15,13 @@ public class Dato implements Serializable {
     private int numberPackage;
     private byte[] data;
     private String fileName;
+    private int totalPackage;
 
     public Dato(int numberPackage, byte[] data, String fileName) {
         this.numberPackage = numberPackage;
         this.data = data;
         this.fileName = fileName;
+        this.totalPackage = totalPackage;
     }
 
     public int getNumberPackage() {
@@ -33,5 +34,9 @@ public class Dato implements Serializable {
 
     public String getFileName() {
         return fileName;
+    }
+    
+    public int getTotalPackage() {
+        return totalPackage;
     }
 }

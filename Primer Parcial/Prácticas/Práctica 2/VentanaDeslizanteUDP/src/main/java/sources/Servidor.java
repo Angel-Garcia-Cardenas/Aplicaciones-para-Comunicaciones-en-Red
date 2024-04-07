@@ -2,16 +2,17 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package Servidor;
+package sources;
 
-import java.net.*;
-import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 
 /**
  *
@@ -21,6 +22,7 @@ public class Servidor {
     
     private static final int WINDOW_SIZE = 4;
     private static final int TIMEOUT_MS = 1000;
+    private static String RutaCarpetaDestino;
     
         public static void main(String args[]) {
             try{
@@ -29,8 +31,10 @@ public class Servidor {
                 s.setReuseAddress(true);
                 
                 FileOutputStream fileOutputStream = null;
-                int expectedSequenceNumber = 0;
-                int lastAcknowledgedSequenceNumber = -1;
+                int paqueteEsperado = 0;
+                int ultimoConfirmado = -1;
+                
+                RutaCarpetaDestino = "./AlojaEnvio";
     
                 for(;;){
                     DatagramPacket p = new DatagramPacket(new byte[65535],65535);
@@ -39,20 +43,20 @@ public class Servidor {
                     
                     Dato objetoRecibido = (Dato)ois.readObject();
                     
-                    System.out.println("Paquete recibido: " + objetoRecibido.getNumberPackage());
+                    //System.out.println("Paquete recibido: " + objetoRecibido.getNumberPackage());
                     
-                    if (objetoRecibido.getNumberPackage() == expectedSequenceNumber) {
+                    if (objetoRecibido.getNumberPackage() == paqueteEsperado) {
                         if(fileOutputStream == null){
-                            fileOutputStream = new FileOutputStream(objetoRecibido.getFileName());
-                            System.out.println("Guardando archivo en: " + objetoRecibido.getFileName());
-                        }// if existe archivo
+                            fileOutputStream = new FileOutputStream(RutaCarpetaDestino + "/" + objetoRecibido.getFileName());
+                            System.out.println("Guardando archivo en: " + RutaCarpetaDestino + "/" + objetoRecibido.getFileName());
+                        }// if ya existe archivo
                     
-                    fileOutputStream.write(objetoRecibido.getData());
-                    System.out.println("Enviando: " + objetoRecibido.getNumberPackage() * 100 / objetoRecibido.getTotalPackage() + "%");
-                    enviarConfirmacion(s, p.getAddress(),p.getPort(), expectedSequenceNumber);
-                    lastAcknowledgedSequenceNumber = expectedSequenceNumber;
+                        fileOutputStream.write(objetoRecibido.getData());
+                        System.out.println("Enviando: " + objetoRecibido.getNumberPackage() * 100 / objetoRecibido.getTotalPackage() + "%");
+                        enviarConfirmacion(s, p.getAddress(),p.getPort(), paqueteEsperado);
+                        ultimoConfirmado = paqueteEsperado;
 
-                    expectedSequenceNumber = (expectedSequenceNumber + 1) % WINDOW_SIZE;
+                        paqueteEsperado = (paqueteEsperado + 1) % WINDOW_SIZE;
                     
                         for(;;){
                             p = new DatagramPacket(new byte[65535], 65535);
@@ -61,16 +65,16 @@ public class Servidor {
                                 s.receive(p);
                                 ois = new ObjectInputStream(new ByteArrayInputStream(p.getData()));
                                 objetoRecibido = (Dato) ois.readObject();
-                                if( objetoRecibido.getNumberPackage() == expectedSequenceNumber){
+                                if( objetoRecibido.getNumberPackage() == paqueteEsperado){
                                     fileOutputStream.write(objetoRecibido.getData());
                                     System.out.println("Enviando: " + objetoRecibido.getNumberPackage() * 100 / objetoRecibido.getTotalPackage() + "%");
-                                    enviarConfirmacion(s, p.getAddress(), p.getPort(), expectedSequenceNumber);
-                                    lastAcknowledgedSequenceNumber = expectedSequenceNumber;
+                                    enviarConfirmacion(s, p.getAddress(), p.getPort(), paqueteEsperado);
+                                    ultimoConfirmado = paqueteEsperado;
 
-                                    expectedSequenceNumber = (expectedSequenceNumber + 1) % WINDOW_SIZE;
+                                    paqueteEsperado = (paqueteEsperado + 1) % WINDOW_SIZE;
                                 }//if
                                 else{
-                                    enviarConfirmacion(s, p.getAddress(), p.getPort(), lastAcknowledgedSequenceNumber);
+                                    enviarConfirmacion(s, p.getAddress(), p.getPort(), ultimoConfirmado);
                                 }//else
                                 
                             } //try
@@ -81,9 +85,9 @@ public class Servidor {
                             
                         } //for
                         
-                    } //if
+                    } //if paquete recibido es el paquete esperado
                     else {
-                    enviarConfirmacion(s, p.getAddress(), p.getPort(), lastAcknowledgedSequenceNumber);
+                    enviarConfirmacion(s, p.getAddress(), p.getPort(), ultimoConfirmado);
                     }// else
                 }//for
             }//try
@@ -92,9 +96,9 @@ public class Servidor {
             }//catch
     }//main
         
-    private static void enviarConfirmacion(DatagramSocket socket, InetAddress address, int port, int sequenceNumber) {
+    private static void enviarConfirmacion(DatagramSocket socket, InetAddress address, int port, int paqueteSiguiente) {
         try {
-            String response = "ACK " + sequenceNumber;
+            String response = "ACK " + paqueteSiguiente;
             byte[] aux = response.getBytes();
             DatagramPacket p = new DatagramPacket(aux, aux.length, address, port);
             socket.send(p);
