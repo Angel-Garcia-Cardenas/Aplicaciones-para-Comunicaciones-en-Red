@@ -26,7 +26,7 @@ public class Servidor {
     
         public static void main(String args[]) {
             try{
-                DatagramSocket s = new DatagramSocket(1234);
+                DatagramSocket s = new DatagramSocket(8000);
                 System.out.println("Servidor iniciado, experando cliente ...");
                 s.setReuseAddress(true);
                 
