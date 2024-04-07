@@ -12,5 +12,26 @@ import java.net.*;
  * @author garci
  */
 public class Dato implements Serializable {
-    int numeroPaquete;
+    private static final long serialVersionUID = 1L;
+    private int numberPackage;
+    private byte[] data;
+    private String fileName;
+
+    public Dato(int numberPackage, byte[] data, String fileName) {
+        this.numberPackage = numberPackage;
+        this.data = data;
+        this.fileName = fileName;
+    }
+
+    public int getNumberPackage() {
+        return numberPackage;
+    }
+
+    public byte[] getData() {
+        return data;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
 }
