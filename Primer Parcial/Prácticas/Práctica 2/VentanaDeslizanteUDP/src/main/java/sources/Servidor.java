@@ -87,8 +87,14 @@ public class Servidor {
                         
                     } //if paquete recibido es el paquete esperado
                     else {
-                    enviarConfirmacion(s, p.getAddress(), p.getPort(), ultimoConfirmado);
+                        enviarConfirmacion(s, p.getAddress(), p.getPort(), ultimoConfirmado);
                     }// else
+                    
+                    if (objetoRecibido.getNumberPackage() == objetoRecibido.getTotalPackage() - 1) {
+                        System.out.println("¡Archivo recibido completamente!");
+                        break;
+                    } //if
+                    
                 }//for
             }//try
             catch(Exception e){
