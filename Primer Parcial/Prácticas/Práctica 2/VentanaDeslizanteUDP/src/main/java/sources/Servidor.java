@@ -96,6 +96,7 @@ public class Servidor {
                     } //if
                     
                 }//for
+                fileOutputStream.close();
             }//try
             catch(Exception e){
                 e.printStackTrace();
