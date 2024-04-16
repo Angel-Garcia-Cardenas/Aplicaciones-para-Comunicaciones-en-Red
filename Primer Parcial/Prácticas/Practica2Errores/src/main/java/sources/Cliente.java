@@ -7,6 +7,7 @@ package sources;
 import java.net.*;
 import java.io.*;
 import java.util.*;
+import javax.swing.JFileChooser;
 
 public class Cliente {
     private static final int PORT = 8000;
@@ -15,7 +16,10 @@ public class Cliente {
     private static final int PACKET_SIZE = 1024;
 
     public static void main(String[] args) {
-        String filePath = "C:\\Users\\zivan\\Documents\\Escuela\\6toSemestre\\Redes\\Prac3\\Archivo\\Inicial3D.pdf";
+        JFileChooser fileChooser = new JFileChooser();
+        int response = fileChooser.showOpenDialog(null);
+        File selectedFile = fileChooser.getSelectedFile();
+        String filePath = selectedFile.getAbsolutePath();
         File file = new File(filePath);
 
         if (!file.exists()) {
